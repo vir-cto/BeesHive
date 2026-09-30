@@ -1,0 +1,28 @@
+[
+  {
+    "origin": [
+      "http://localhost:5173",
+      "https://beeshive-80274.firebaseapp.com",
+      "https://beeshive-80274.web.app"
+    ],
+    "method": [
+      "GET",
+      "HEAD",
+      "POST",
+      "PUT",
+      "DELETE",
+      "OPTIONS"
+    ],
+    "responseHeader": [
+      "Content-Type",
+      "Content-Length",
+      "Accept-Ranges",
+      "Cache-Control",
+      "Content-Disposition",
+      "Content-Encoding",
+      "Authorization",
+      "x-goog-resumable"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]

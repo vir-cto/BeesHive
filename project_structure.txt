@@ -1,0 +1,124 @@
+beeshive/
+├── docs/
+│   └── pt210-deployment.md
+├── public/
+│   └── favicon.svg
+├── scripts/
+│   ├── apply-storage-cors.cjs
+│   ├── print-server.cjs
+│   ├── relay-concurrency-test.cjs
+│   └── relay-transport-test.cjs
+├── src/
+│   ├── assets/
+│   ├── components/
+│   │   ├── AdminAdminManagement.tsx
+│   │   ├── AdminBillingView.tsx
+│   │   ├── AdminDayHistory.tsx
+│   │   ├── AdminInventoryManagement.tsx
+│   │   ├── AdminMenuManagement.tsx
+│   │   ├── AdminMenuPricing.tsx
+│   │   ├── AdminParcelBilling.tsx
+│   │   ├── AdminPurchaseHistory.tsx
+│   │   ├── AdminPurchaseRequests.tsx
+│   │   ├── AdminSessionBilling.tsx
+│   │   ├── AdminStaffManagement.tsx
+│   │   ├── AdminStockAnalytics.tsx
+│   │   ├── AdminTableManagement.tsx
+│   │   ├── AdminTokensView.tsx
+│   │   ├── AdminWaiterAnalytics.tsx
+│   │   ├── Avatar.tsx
+│   │   ├── AvatarUpload.tsx
+│   │   ├── BeeLogo.tsx
+│   │   ├── ErrorBoundary.tsx
+│   │   ├── FoodTypeBadge.tsx
+│   │   ├── Header.tsx
+│   │   ├── ImageUpload.tsx
+│   │   ├── InventoryEditModal.tsx
+│   │   ├── MenuPriceHistoryView.tsx
+│   │   ├── NotificationsPanel.tsx
+│   │   ├── NotificationToasts.tsx
+│   │   ├── PrintPreview.tsx
+│   │   ├── ProtectedRoute.tsx
+│   │   ├── RestaurantInfoCard.tsx
+│   │   ├── Sidebar.tsx
+│   │   ├── SupervisorMenuManagement.tsx
+│   │   ├── SupervisorOrderBoard.tsx
+│   │   ├── SupervisorRecipeManagement.tsx
+│   │   ├── TableFilterBar.tsx
+│   │   ├── TableFloorMatrix.tsx
+│   │   ├── ViewModeSelect.tsx
+│   │   ├── WaiterFloorView.tsx
+│   │   ├── WaiterMenuBrowse.tsx
+│   │   ├── WaiterOrderCreation.tsx
+│   │   └── WaiterTableAllocation.tsx
+│   ├── context/
+│   │   ├── AuthContext.tsx
+│   │   ├── RestaurantContext.tsx
+│   │   └── SidebarContext.tsx
+│   ├── lib/
+│   │   ├── businessDay.ts
+│   │   ├── inventoryPurchase.ts
+│   │   ├── menuFilters.ts
+│   │   ├── orderCustomization.ts
+│   │   ├── orderMetrics.ts
+│   │   ├── orderPriority.ts
+│   │   ├── password.ts
+│   │   ├── roleLabel.ts
+│   │   ├── servingType.ts
+│   │   ├── tableAreas.ts
+│   │   ├── tableFilters.ts
+│   │   ├── tokenLabel.ts
+│   │   ├── tokenSequence.ts
+│   │   ├── username.ts
+│   │   └── viewPreference.ts
+│   ├── pages/
+│   │   ├── AdminDashboard.tsx
+│   │   ├── Login.tsx
+│   │   ├── NotificationsHistory.tsx
+│   │   ├── SupervisorDashboard.tsx
+│   │   └── WaiterDashboard.tsx
+│   ├── services/
+│   │   ├── firebase/
+│   │   │   ├── authService.ts
+│   │   │   ├── config.ts
+│   │   │   ├── dataService.ts
+│   │   │   ├── index.ts
+│   │   │   ├── printJobStore.ts
+│   │   │   ├── sessionCapacityService.ts
+│   │   │   ├── settingsService.ts
+│   │   │   ├── storageService.ts
+│   │   │   ├── syncEngine.ts
+│   │   │   ├── tokenService.ts
+│   │   │   └── userService.ts
+│   │   ├── pdf/
+│   │   │   └── billPdfService.ts
+│   │   └── print/
+│   │       ├── printFormatters.ts
+│   │       └── printService.ts
+│   ├── App.css
+│   ├── App.tsx
+│   ├── firebase.ts
+│   ├── index.css
+│   └── main.tsx
+├── .env
+├── .env.example
+├── .env.print-relay
+├── .gitignore
+├── .prettierrc
+├── cors.json
+├── eslint.config.js
+├── firestore.rules
+├── index.html
+├── package.json
+├── plain_txt.txt
+├── postcss.config.cjs
+├── PT.py
+├── README.md
+├── st.py
+├── start-print-relay.cmd
+├── storage.rules
+├── tailwind.config.cjs
+├── tsconfig.app.json
+├── tsconfig.json
+├── tsconfig.node.json
+└── vite.config.ts

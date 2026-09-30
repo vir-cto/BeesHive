@@ -1,0 +1,41 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function canManageImages() {
+      return signedIn() && (role() == 'admin' || role() == 'supervisor');
+    }
+
+    function isAdmin() {
+      return signedIn() && role() == 'admin';
+    }
+
+    // Only real image uploads, capped at 5 MB — never arbitrary files.
+    function validImageUpload() {
+      return request.resource != null
+             && request.resource.contentType.matches('image/(jpeg|jpg|png|webp)')
+             && request.resource.size < 5 * 1024 * 1024;
+    }
+
+    match /members/{userId}/avatar {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+                   && (request.auth.uid == userId || isAdmin())
+                   && validImageUpload();
+      allow delete: if signedIn() && (request.auth.uid == userId || isAdmin());
+    }
+
+    match /restaurants/{restaurantId}/menu/{menuItemId}/{fileName} {
+      allow read: if signedIn();
+      allow create, update: if canManageImages() && validImageUpload();
+      allow delete: if canManageImages();
+    }
+  }
+}

@@ -1,0 +1,249 @@
+rules_version = '2';
+// Bee's Hive � Cloud Firestore security rules for project **beeshive-80274**.
+//
+// These rules are the security boundary: every read/write from the web client is
+// authorized here with `request.auth` and the caller's `users/{uid}` profile.
+// A client-side role check is never sufficient on its own.
+//
+// DEPLOYMENT: Firebase Console ? Firestore Database ? Rules (paste this file), or
+// `firebase deploy --only firestore:rules` when the Firebase CLI is available.
+// A project still running the console's default test-mode rules answers
+// UNAUTHENTICATED reads � not acceptable for production data.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return signedIn() && profile().role == 'admin';
+    }
+
+    function isSupervisor() {
+      return signedIn() && profile().role == 'supervisor';
+    }
+
+    function isWaiter() {
+      return signedIn() && profile().role == 'waiter';
+    }
+
+    function canOperate() {
+      return isAdmin() || isSupervisor() || isWaiter();
+    }
+
+    // -- One-time Main Admin bootstrap -----------------------------------------
+    // A brand-new project has no `users/*` document, so nobody could manage
+    // staff. Exactly one account � the nominated owner email, which is the
+    // VERIFIED email inside the signed ID token and therefore cannot be spoofed
+    // by a client � may claim the Main Admin profile, and only while the
+    // `counters/bootstrap` claim document does not exist yet. The app writes that
+    // claim immediately after the profile is created, closing the window
+    // permanently at first use.
+    function isDesignatedOwner() {
+      return signedIn()
+             && exists(/databases/$(database)/documents/config/bootstrap)
+             && request.auth.token.email == get(/databases/$(database)/documents/config/bootstrap).data.ownerEmail;
+    }
+
+    function bootstrapUnclaimed() {
+      return !exists(/databases/$(database)/documents/counters/bootstrap);
+    }
+
+    // -- Login identifier mappings (username / phone / email) -----------------
+    // Atomic, transactional uniqueness for every login identifier. Each
+    // document is { uid, authEmail, createdAt }:
+    //   � uid        � the Firebase Auth account the identifier resolves to;
+    //   � authEmail  � the internal, non-routable Firebase Auth email so the
+    //                  login screen can resolve an identifier BEFORE any user
+    //                  is signed in (no credentials are ever stored here).
+    // Renames are implemented as delete-old + create-new (never an update), so
+    // stale mappings cannot survive a successful change.
+    //
+    // `read: if true` is deliberate: the unauthenticated login screen must look
+    // up the mapping to resolve the typed identifier. No password, hash or
+    // profile data is exposed � only the opaque uid and internal auth email.
+    //
+    // A signed-in admin may create/delete mappings on behalf of accounts they
+    // administer (staff/admin creation, directory edits); a user may manage
+    // mappings that point at their own uid.
+    function canManageMapping() {
+      return signedIn()
+             && (request.resource.data.uid == request.auth.uid
+                 || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+    function canReleaseMapping() {
+      return signedIn()
+             && (resource.data.uid == request.auth.uid
+                 || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+    function validMapping() {
+      return request.resource.data.uid is string
+             && request.resource.data.uid.size() > 0
+             && request.resource.data.authEmail is string
+             && request.resource.data.createdAt is number;
+    }
+
+    match /usernames/{username} {
+      allow read: if true;
+      allow create: if canManageMapping() && validMapping();
+      allow update: if false;  // Renames release + recreate; no in-place updates.
+      allow delete: if canReleaseMapping();
+    }
+
+    match /phones/{phone} {
+      allow read: if true;
+      allow create: if canManageMapping() && validMapping() && phone.matches('\\d{10}');
+      allow update: if false;
+      allow delete: if canReleaseMapping();
+    }
+
+    match /emails/{email} {
+      allow read: if true;
+      allow create: if canManageMapping() && validMapping();
+      allow update: if false;
+      allow delete: if canReleaseMapping();
+    }
+
+    // Staff & account directory � PROFILE DATA ONLY. Firebase Authentication owns
+    // credentials: no password and no password hash is ever stored here.
+    match /users/{userId} {
+      allow read: if signedIn();
+      // Staff may create their own NON-privileged profile (waiter only). Only the
+      // current Main Admin can create other accounts, and only the guarded
+      // one-time owner bootstrap can create a Main Admin document � so a waiter
+      // can never grant themselves admin privileges.
+      allow create: if request.auth != null
+                    && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isMainAdmin == true
+                        || (request.auth.uid == userId
+                            && request.resource.data.isMainAdmin != true
+                            && request.resource.data.role == 'waiter')
+                        || (request.auth.uid == userId
+                            && isDesignatedOwner()
+                            && bootstrapUnclaimed()
+                            && request.resource.data.role == 'admin'
+                            && request.resource.data.isMainAdmin == true));
+      // Staff may update their own non-privileged profile � `role` and
+      // `isMainAdmin` must stay identical, so nobody can promote themselves.
+      // Admins manage the directory (roles/activation of other accounts), plus
+      // the same guarded one-time owner bootstrap.
+      allow update: if request.auth != null
+                    && (isAdmin()
+                        || (request.auth.uid == userId
+                            && request.resource.data.role == resource.data.role
+                            && request.resource.data.isMainAdmin == resource.data.isMainAdmin)
+                        || (request.auth.uid == userId
+                            && isDesignatedOwner()
+                            && bootstrapUnclaimed()
+                            && request.resource.data.role == 'admin'
+                            && request.resource.data.isMainAdmin == true));
+      allow delete: if request.auth != null
+                    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isMainAdmin == true;
+    }
+
+    // Atomic token counters (dine-in / parcel series per restaurant day).
+    match /counters/{counterId} {
+      allow read, write: if canOperate();
+    }
+
+    // Deployment configuration (non-secret). `config/bootstrap.ownerEmail` names
+    // the account allowed to claim the one-time Main Admin bootstrap (see
+    // isDesignatedOwner). Read-only for clients; the value is set once per
+    // deployment in the Firebase Console — never a secret, never a credential.
+    match /config/{configId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Daily waiter analytics snapshots (written by the admin analytics view).
+    match /analytics/{docId} {
+      allow read, write: if isAdmin() || isSupervisor();
+    }
+
+    // Restaurant settings document.
+    match /settings/{docId} {
+      allow read: if canOperate();
+      allow write: if isAdmin();
+    }
+
+    match /orders/{documentId} {
+      allow read, write: if canOperate();
+    }
+
+    match /diningSessions/{documentId} {
+      allow read, write: if canOperate();
+    }
+
+    match /tables/{documentId} {
+      allow read, write: if canOperate();
+    }
+
+    match /notifications/{documentId} {
+      allow read, write: if canOperate();
+    }
+
+    match /activityLog/{documentId} {
+      allow read, write: if canOperate();
+    }
+
+    match /menu/{documentId} {
+      allow read: if canOperate();
+      allow write: if isAdmin() || isSupervisor();
+    }
+
+    match /menuCategories/{documentId} {
+      allow read: if canOperate();
+      allow write: if isAdmin() || isSupervisor();
+    }
+
+    match /bills/{documentId} {
+      allow read: if canOperate();
+      // Billing / payments are admin-only to prevent waiters (who only serve
+      // orders and tokens) from finalising bills, recording payments, or
+      // using Paytm POS. Waiters can still read bills for their sessions.
+      // Deletes stay admin-only.
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /paymentRecords/{documentId} {
+      allow read: if canOperate();
+      // Payment recording is admin-only (Cash / POS). Waiters may read
+      // payment records but cannot create or alter them.
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Durable print-job history (status mirror of the Windows print relay).
+    // Operational records only � never receipt contents. Any operator role
+    // creates/updates their own jobs; deletes are admin-only.
+    match /printJobs/{documentId} {
+      allow read: if canOperate();
+      allow create, update: if canOperate();
+      allow delete: if isAdmin();
+    }
+
+    match /inventory/{documentId} {
+      allow read, write: if isAdmin() || isSupervisor();
+    }
+
+    match /stockHistory/{documentId} {
+      allow read, write: if isAdmin() || isSupervisor();
+    }
+
+    match /inventoryUsage/{documentId} {
+      allow read, write: if isAdmin() || isSupervisor();
+    }
+
+    match /purchaseRequests/{documentId} {
+      allow read, write: if isAdmin() || isSupervisor();
+    }
+
+    match /recipes/{documentId} {
+      allow read, write: if isAdmin() || isSupervisor();
+    }
+  }
+}
+
